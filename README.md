@@ -289,9 +289,12 @@ states a fact itself, that authoritative value wins.**
 **Where it fails (honest):** grounding is a substring check, not semantic
 verification — a number that's present but attached to the wrong field would
 still pass. Enum glossaries are hand-built from ~30 listings' worth of reading,
-so an unseen phrasing falls through to `null` (the safe direction) — or, rarely,
-leaks an off-enum value (one listing carries `finishing_level="ultra lux"`,
-outside the closed set). `delivery_status` and `floor_number` are the weakest
+so an unseen phrasing falls through to `null` (the safe direction). A closed-enum
+guard (`canon_enum`) then drops any value that's neither a glossary match nor a
+schema-valid literal — so off-enum LLM output like `finishing_level="ultra lux"`
+or `installment_frequency="متساوية"` becomes `null` rather than leaking into the
+dataset (while valid literals the glossary happens to miss, e.g. `payment_type
+="both"`, are preserved). `delivery_status` and `floor_number` are the weakest
 gold fields (67% / 77%) — genuine free-text recall gaps, not normalization bugs.
 
 ---
@@ -373,8 +376,10 @@ IPs (the resumability is built for exactly this). (2) Fuzzy compound-name
 clustering so "Mountain View iCity" / "ماونتن فيو اي سيتي" / "MV iCity" collapse
 to one entity (`rapidfuzz` is already a dep). (3) A cheap second-model verifier
 on grounding-rejected rows, to separate "hallucinated" from "present but phrased
-so the substring check misses it". (4) Widen the enum glossaries to kill leaks
-like the lone `ultra lux`.
+so the substring check misses it". (4) Widen the enum glossaries so off-enum
+values are *mapped/recovered* (e.g. `ultra lux → super lux`) instead of nulled —
+the guard already prevents them from leaking, but recovering the value beats
+dropping it.
 
 ---
 
