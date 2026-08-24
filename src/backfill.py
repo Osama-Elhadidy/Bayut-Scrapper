@@ -33,13 +33,16 @@ from datetime import datetime, timezone
 from . import db, extract
 from .schema import GroupBExtraction
 
-# Fields apply_structural_hints() can change -- the only ones we write back,
-# so nothing else in the record is ever disturbed. Includes cash_discount_pct
-# because the rent guard can null it.
+# Fields backfill can change -- the only ones we write back, so nothing else in
+# the record is ever disturbed. Covers the structural-hint targets (+ the
+# rent-guarded cash_discount_pct) and the closed-enum fields re-canonicalized
+# below (finishing_level, delivery_status, payment_type; sale_type and
+# installment_frequency already appear as structural targets).
 _TOUCHED = ("compound_name", "sale_type", "installment_amount",
             "installment_frequency", "installment_years",
             "down_payment_amount", "down_payment_pct", "cash_discount_pct",
-            "total_installment_cost")
+            "total_installment_cost",
+            "finishing_level", "delivery_status", "payment_type")
 
 _GROUP_B = tuple(GroupBExtraction.model_fields.keys())
 
@@ -82,6 +85,12 @@ def backfill(conn, limit=None, log=print):
         # to the same value doesn't register as a spurious change.
         current["total_installment_cost"] = rec["total_installment_cost"]
         updated = extract.apply_structural_hints(current, hints)
+
+        # Deterministic enum re-canonicalization (LLM-free): drop any closed-enum
+        # value that isn't schema-valid -- e.g. an "ultra lux" / "متساوية" leak
+        # from an older extraction -- and re-snap drifted casings.
+        for ef in extract._VALID_ENUM:
+            updated[ef] = extract.canon_enum(ef, updated.get(ef))
 
         diff = {f: updated.get(f) for f in _TOUCHED
                 if updated.get(f) != current.get(f)}

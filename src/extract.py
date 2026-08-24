@@ -252,6 +252,34 @@ _ENUM_FIELDS = {
     "installment_frequency": normalize.canon_installment_frequency,
 }
 
+# The closed vocabularies the schema's Literal enums allow. A value that matches
+# none of its glossary variants AND is not already a valid member is dropped to
+# null -- a closed enum must never leak an off-list value (e.g. the model
+# returning "ultra lux" for finishing, or "متساوية" for frequency). The glossary
+# (normalize.canon_*) can legitimately miss a valid literal it has no Arabic/
+# English variant for -- notably payment_type "both" -- so validity is checked
+# against THIS set, not against whether the glossary matched. Kept in sync with
+# schema.py by hand.
+_VALID_ENUM = {
+    "finishing_level": {"core & shell", "semi-finished", "fully finished",
+                        "super lux", "furnished"},
+    "delivery_status": {"ready", "off-plan"},
+    "sale_type": {"primary", "resale"},
+    "payment_type": {"cash", "installments", "both"},
+    "installment_frequency": {"monthly", "quarterly", "annual"},
+}
+
+
+def canon_enum(field, val):
+    """Canonicalize one closed-enum value to a schema-valid member, or null.
+    Prefers the glossary mapping; falls back to the raw value only if it is
+    already a valid literal; otherwise drops it to null. Shared by the live
+    extractor (canonicalize) and the LLM-free backfill so both enforce the same
+    closed vocabulary."""
+    if val in (None, ""):
+        return None
+    return _ENUM_FIELDS[field](val) or (val if val in _VALID_ENUM[field] else None)
+
 
 def canonicalize(raw: dict) -> dict:
     """Re-parse every value the model returned through the deterministic
@@ -269,10 +297,9 @@ def canonicalize(raw: dict) -> dict:
     if out.get("delivery_date"):
         out["delivery_date"] = normalize.parse_delivery_date(str(out["delivery_date"])) \
             or out["delivery_date"]
-    for f, fn in _ENUM_FIELDS.items():
-        val = out.get(f)
-        if val:
-            out[f] = fn(val) or val
+    for f in _ENUM_FIELDS:
+        if out.get(f):
+            out[f] = canon_enum(f, out[f])
     return out
 
 
