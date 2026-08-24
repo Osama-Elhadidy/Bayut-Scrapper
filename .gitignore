@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.env
+data/bayut.db
+data/bayut.db-wal
+data/bayut.db-shm
+data/bayut_session.json
+db/
+scraper.py

@@ -1,0 +1,1 @@
+{"ts": "2026-08-22T16:24:54.814018+00:00", "note": "baseline, before any reconnect", "ipify": "197.63.129.151", "ifconfig": "197.63.129.151", "asn_org": "TE Data", "country": "Egypt", "bayut": {"status": 200, "final_url": "https://www.bayut.eg/captchaChallenge?externalRedirectPath=https%3A%2F%2Fwww.bayut.eg%2F&hbCO=eyJhbG", "bytes": 832970, "challenged": true, "humbucker": true}}
